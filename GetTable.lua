@@ -6,6 +6,8 @@ local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
 local encoding = require 'encoding'
 local ffi = require 'ffi'
+local requests = require("requests")
+local json = require("json")
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
@@ -18,73 +20,19 @@ local firstLoadComplete = false
 local searchQuery = imgui.new.char[128]()
 
 local csvURL = "https://docs.google.com/spreadsheets/d/1WyZy0jQbnZIbV82wF2vT4R6lDPl4zfP_HzfRDYRMPo4/export?format=csv&gid=0"
-local updateUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
-
--- Система автообновления
-local function checkForUpdate()
-    local tmpFile = os.tmpname() .. ".json"
-    downloadUrlToFile(updateUrl, tmpFile, function(success)
-        if not success then
-            sampAddChatMessage("[GT] Не удалось проверить обновление.", -1)
-            return
-        end
-
-        local file = io.open(tmpFile, "r")
-        if not file then return end
-        local content = file:read("*a")
-        file:close()
-        os.remove(tmpFile)
-
-        local ok, json = pcall(decodeJson, content)
-        if not ok or not json or not json.version or not json.script_url then
-            sampAddChatMessage("[GT] Неверный формат update.json", -1)
-            return
-        end
-
-        if json.version ~= thisScript().version then
-            sampAddChatMessage("[GT] Доступна новая версия: " .. json.version .. ", обновляем...", -1)
-            local tmpLua = os.tmpname() .. ".lua"
-            downloadUrlToFile(json.script_url, tmpLua, function(downloaded)
-                if downloaded then
-                    local success = false
-                    local src = io.open(tmpLua, "r")
-                    if src then
-                        local newContent = src:read("*a")
-                        src:close()
-
-                        local dst = io.open(thisScript().path, "w+")
-                        if dst then
-                            dst:write(newContent)
-                            dst:close()
-                            success = true
-                        end
-                    end
-
-                    os.remove(tmpLua)
-                    if success then
-                        sampAddChatMessage("[GT] Скрипт успешно обновлён. Перезапустите скрипт или игру.", -1)
-                    else
-                        sampAddChatMessage("[GT] Не удалось записать обновлённый скрипт.", -1)
-                    end
-                else
-                    sampAddChatMessage("[GT] Ошибка загрузки новой версии скрипта.", -1)
-                end
-            end)
-        else
-            sampAddChatMessage("[GT] Установлена последняя версия скрипта.", -1)
-        end
-    end)
-end
+local updateUrl = "https://raw.githubusercontent.com/your-username/your-repo/main/update.json" -- УКАЖИ СВОЮ ССЫЛКУ
 
 local function theme()
     local s = imgui.GetStyle()
     local c = imgui.Col
     local clr = s.Colors
+
     s.WindowRounding = 0
     s.WindowTitleAlign = imgui.ImVec2(0.5, 0.84)
     s.ChildRounding = 0
     s.FrameRounding = 5.0
     s.ItemSpacing = imgui.ImVec2(10, 10)
+
     clr[c.Text] = imgui.ImVec4(0.85, 0.86, 0.88, 1)
     clr[c.WindowBg] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
     clr[c.ChildBg] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
@@ -95,13 +43,16 @@ local function theme()
     clr[c.FrameBgHovered] = imgui.ImVec4(0.15, 0.20, 0.23, 1)
     clr[c.FrameBgActive] = imgui.ImVec4(0.15, 0.20, 0.23, 1)
     clr[c.Separator] = imgui.ImVec4(0.20, 0.25, 0.30, 1)
+
     clr[c.TitleBg] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
     clr[c.TitleBgActive] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
     clr[c.TitleBgCollapsed] = imgui.ImVec4(0.05, 0.08, 0.10, 0.75)
+
     s.ScrollbarSize = 18
     s.ScrollbarRounding = 0
     s.GrabRounding = 0
     s.GrabMinSize = 38
+
     clr[c.ScrollbarBg] = imgui.ImVec4(0.04, 0.06, 0.07, 0.8)
     clr[c.ScrollbarGrab] = imgui.ImVec4(0.15, 0.15, 0.18, 1.0)
     clr[c.ScrollbarGrabHovered] = imgui.ImVec4(0.25, 0.25, 0.28, 1.0)
@@ -115,17 +66,19 @@ imgui.OnInitialize(function()
     imgui.GetIO().IniFilename = nil
 end)
 
-local function CenterText(text)
-    local windowWidth = imgui.GetWindowSize().x
-    local textWidth = imgui.CalcTextSize(text).x
-    imgui.SetCursorPosX((windowWidth - textWidth) * 0.5)
-    imgui.Text(text)
-end
-
 local function CenterTextInColumn(text)
     local columnWidth = imgui.GetColumnWidth()
     local textWidth = imgui.CalcTextSize(text).x
-    imgui.SetCursorPosX(imgui.GetCursorPosX() + (columnWidth - textWidth) * 0.5)
+    local offset = (columnWidth - textWidth) * 0.5
+    if offset > 0 then imgui.SetCursorPosX(imgui.GetCursorPosX() + offset) end
+    imgui.Text(text)
+end
+
+local function CenterText(text)
+    local windowWidth = imgui.GetWindowSize().x
+    local textWidth = imgui.CalcTextSize(text).x
+    local offset = (windowWidth - textWidth) * 0.5
+    if offset > 0 then imgui.SetCursorPosX(offset) end
     imgui.Text(text)
 end
 
@@ -134,12 +87,15 @@ local function parseCSV(data)
     for line in data:gmatch("[^\r\n]+") do
         local row, i, inQuotes, cell = {}, 1, false, ''
         for c in (line .. ','):gmatch('.') do
-            if c == '"' then inQuotes = not inQuotes
+            if c == '"' then
+                inQuotes = not inQuotes
             elseif c == ',' and not inQuotes then
                 row[i] = cell:gsub('^%s*"(.-)"%s*$', '%1'):gsub('""', '"')
                 i = i + 1
                 cell = ''
-            else cell = cell .. c end
+            else
+                cell = cell .. c
+            end
         end
         table.insert(rows, row)
     end
@@ -148,7 +104,9 @@ end
 
 local function drawSpinner()
     local center = imgui.GetWindowPos() + imgui.GetWindowSize() * 0.5
-    local radius, thickness, segments = 32.0, 3.0, 30
+    local radius = 32.0
+    local thickness = 3.0
+    local segments = 30
     local time = imgui.GetTime()
     local angle_offset = (time * 3) % (2 * math.pi)
     local drawList = imgui.GetWindowDrawList()
@@ -156,7 +114,7 @@ local function drawSpinner()
     for i = 0, segments - 1 do
         local a0 = i / segments * 2 * math.pi
         local a1 = (i + 1) / segments * 2 * math.pi
-        local alpha = i / segments
+        local alpha = (i / segments)
         if alpha > 0.25 and alpha < 0.75 then
             local x0 = center.x + radius * math.cos(a0 + angle_offset)
             local y0 = center.y + radius * math.sin(a0 + angle_offset)
@@ -178,6 +136,7 @@ local function drawTable(data)
 
     local filtered = {}
     local query = ffi.string(searchQuery)
+
     for i = 2, #data do
         local row = data[i]
         local cell = tostring(row[1] or "")
@@ -187,6 +146,7 @@ local function drawTable(data)
     end
 
     imgui.BeginChild("scrollingRegion", imgui.ImVec2(-1, -1), true)
+
     if #filtered == 0 then
         drawSpinner()
         imgui.Dummy(imgui.ImVec2(0, 40))
@@ -200,7 +160,8 @@ local function drawTable(data)
     local pos = imgui.GetCursorScreenPos()
     local y0 = pos.y - imgui.GetStyle().ItemSpacing.y
     local y1 = pos.y + imgui.GetContentRegionAvail().y + imgui.GetScrollMaxY() + 7
-    local x1, x2 = pos.x + columnWidth, pos.x + 2 * columnWidth
+    local x1 = pos.x + columnWidth
+    local x2 = pos.x + 2 * columnWidth
 
     local draw = imgui.GetWindowDrawList()
     local sepColor = imgui.GetColorU32(imgui.Col.Separator)
@@ -221,12 +182,14 @@ local function drawTable(data)
         end
         imgui.Separator()
     end
+
     imgui.Columns(1)
     imgui.EndChild()
 end
 
 local function updateCSV()
-    isLoading, firstLoadComplete = true, false
+    isLoading = true
+    firstLoadComplete = false
     local tmpPath = os.tmpname() .. ".csv"
     downloadUrlToFile(csvURL, tmpPath, function(success)
         if success then
@@ -243,7 +206,8 @@ local function updateCSV()
         else
             sheetData = lastGoodSheetData
         end
-        isLoading, firstLoadComplete = false, true
+        isLoading = false
+        firstLoadComplete = true
     end)
 end
 
@@ -267,15 +231,21 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
             ffi.fill(searchQuery, ffi.sizeof(searchQuery))
         end
         imgui.PopStyleColor(3)
-        if imgui.IsItemHovered() then imgui.SetTooltip(u8"Очистить поиск") end
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip(u8"Очистить поиск")
+        end
 
         imgui.SameLine()
         imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0, 0, 0, 0))
         imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(0.15, 0.20, 0.23, 0.3))
         imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.15, 0.20, 0.23, 0.5))
-        if imgui.SmallButton(fa.MAGNIFYING_GLASS) then updateCSV() end
+        if imgui.SmallButton(fa.MAGNIFYING_GLASS) then
+            updateCSV()
+        end
         imgui.PopStyleColor(3)
-        if imgui.IsItemHovered() then imgui.SetTooltip(u8"Обновить таблицу") end
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip(u8"Обновить таблицу")
+        end
 
         imgui.Spacing()
         drawTable(sheetData)
@@ -283,13 +253,40 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
     end
 end)
 
+function checkUpdates()
+    asyncHttpRequest(updateUrl,
+        function(response)
+            if response.status_code == 200 then
+                local data = json.decode(response.text)
+                if data and data.version and data.download then
+                    local currentVersion = tonumber(thisScript().version:gsub('%.', ''))
+                    local newVersion = tonumber(data.version:gsub('%.', ''))
+                    if newVersion > currentVersion then
+                        sampAddChatMessage("{00FF00}[GT] {FFFFFF}Доступна новая версия: {90EE90}" .. data.version .. "{FFFFFF}. Обновление...", -1)
+                        downloadUrlToFile(data.download, thisScript().path, function(_, status)
+                            if status == download_status.STATUSEX_ENDDOWNLOAD then
+                                sampAddChatMessage("{00FF00}[GT] {FFFFFF}Скрипт обновлён. Введите {00FF00}/reload {FFFFFF}или перезапустите игру.", -1)
+                            elseif status == download_status.STATUSEX_ERROR then
+                                sampAddChatMessage("{00FF00}[GT] {FF4C4C}Ошибка загрузки обновления.", -1)
+                            end
+                        end)
+                    end
+                end
+            end
+        end,
+        function(err)
+            sampAddChatMessage("{00FF00}[GT] {FF4C4C}Ошибка при проверке обновлений: " .. tostring(err), -1)
+        end
+    )
+end
+
 function main()
     while not isSampAvailable() do wait(0) end
-    checkForUpdate()
     sampAddChatMessage("{00FF00}[GT]{FFFFFF} Скрипт загружен. Для активации используйте {00FF00}/gt", 0xFFFFFF)
     sampRegisterChatCommand('gt', function()
         renderWindow[0] = not renderWindow[0]
         if renderWindow[0] then updateCSV() end
     end)
+    checkUpdates()
     wait(-1)
 end
