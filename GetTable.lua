@@ -1,6 +1,7 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.25")
+script_version("1.26")
+
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -300,7 +301,7 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
         imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0, 0, 0, 0))
         imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(0.15, 0.20, 0.23, 0.3))
         imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.15, 0.20, 0.23, 0.5))
-        if imgui.SmallButton(fa.MAGNIFYING_GLASS) then updateCSV() end
+        if imgui.SmallButton(fa.ROTATE) then updateCSV() end
         imgui.PopStyleColor(3)
         if imgui.IsItemHovered() then imgui.SetTooltip(u8"Обновить таблицу") end
 
