@@ -63,10 +63,23 @@ local function checkForUpdates()
                 local remote = versionToNumber(data.version)
                 if remote > current then
                     sampAddChatMessage(string.format("{00FF00}[GT]{FFFFFF} Доступна новая версия %s. Обновление...", data.version), 0xFFFFFF)
-                    downloadUrlToFile(data.url, thisScript().path, function(_, status)
+
+                    local tempPath = thisScript().path .. ".new"
+
+                    downloadUrlToFile(data.url, tempPath, function(_, status)
                         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-                            sampAddChatMessage("{00FF00}[GT]{FFFFFF} Скрипт обновлён, перезапуск...", 0xFFFFFF)
-                            lua_thread.create(function() wait(500) thisScript():reload() end)
+                            lua_thread.create(function()
+                                wait(200)
+
+                                local renamed = os.rename(tempPath, thisScript().path)
+                                if renamed then
+                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ вручную.", 0xFFFFFF)
+                                else
+                                    sampAddChatMessage("{FF0000}[GT]{FFFFFF} Ошибка замены скрипта. Возможно, файл заблокирован.", 0xFFFFFF)
+                                end
+                            end)
+                        else
+                            sampAddChatMessage("{FF0000}[GT]{FFFFFF} Ошибка загрузки обновления.", 0xFFFFFF)
                         end
                     end)
                 end
@@ -76,6 +89,7 @@ local function checkForUpdates()
         sampAddChatMessage("{FF0000}[GT]{FFFFFF} Ошибка проверки обновлений: " .. tostring(err), 0xFFFFFF)
     end)
 end
+
 
 -- ?? Таблица Google CSV
 local renderWindow = imgui.new.bool(false)
