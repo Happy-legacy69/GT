@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.15")
+script_version("1.14")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -63,7 +63,7 @@ local function checkForUpdates()
                 if remote > current then
                     sampAddChatMessage(string.format("{00FF00}[GT]{FFFFFF} Доступна новая версия %s. Обновление...", data.version), 0xFFFFFF)
 
-                    local tempPath = thisScript().path -- сразу перезаписываем оригинальный файл
+                    local tempPath = thisScript().path
 
                     downloadUrlToFile(data.url, tempPath, function(_, status)
                         if status == dlstatus.STATUS_ENDDOWNLOADDATA then
