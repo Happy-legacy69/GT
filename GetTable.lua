@@ -14,7 +14,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 -- ? Автообновление
-local updateInfoUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/main/update.json"
+local updateInfoUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
 
 local function versionToNumber(v)
     local clean = tostring(v):gsub("[^%d]", "")
