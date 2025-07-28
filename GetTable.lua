@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.24")
+script_version("1.25")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -282,7 +282,7 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
     imgui.SetNextWindowPos(imgui.ImVec2((sx - w) / 2, (sy - h) / 2), imgui.Cond.FirstUseEver)
     imgui.SetNextWindowSize(imgui.ImVec2(w, h), imgui.Cond.FirstUseEver)
 
-    if imgui.Begin(fa.EYE .. ' Google Table by legacy.', renderWindow) then
+if imgui.Begin(string.format("%s Google Table by legacy %s", fa.EYE, thisScript().version), renderWindow) then
         local availableWidth = imgui.GetContentRegionAvail().x
         imgui.PushItemWidth(availableWidth * 0.7)
         imgui.InputTextWithHint("##Search", u8("Введите товар для поиска по Google Table"), searchQuery, ffi.sizeof(searchQuery))
