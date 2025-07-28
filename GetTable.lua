@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.23")
+script_version("1.24")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -86,7 +86,7 @@ local function checkForUpdates()
                             if status == "completed" then
                                 local ok = thread:get()
                                 if ok then
-                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ вручную.", 0xFFFFFF)
+                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено.", 0xFFFFFF)
                                 end
                                 return
                             elseif status == "canceled" then return end
@@ -202,8 +202,15 @@ local function CenterText(text)
 end
 
 local function drawTable(data)
-    if not firstLoadComplete then drawSpinner(); CenterText(u8"Загрузка таблицы..."); return end
-    if not data or #data == 0 then return end
+    if isLoading or not firstLoadComplete or not data then
+        drawSpinner()
+        imgui.Dummy(imgui.ImVec2(0, 40))
+        CenterText(u8"Загрузка таблицы...")
+        return
+    end
+
+    if #data == 0 then return end
+
     local filtered, query = {}, ffi.string(searchQuery)
     for i = 2, #data do
         local row = data[i]
@@ -214,7 +221,12 @@ local function drawTable(data)
     end
 
     imgui.BeginChild("scrollingRegion", imgui.ImVec2(-1, -1), true)
-    if #filtered == 0 then drawSpinner(); imgui.Dummy(imgui.ImVec2(0, 40)); CenterText(u8"Совпадений нет"); imgui.EndChild(); return end
+    if #filtered == 0 then
+        imgui.Dummy(imgui.ImVec2(0, 40))
+        CenterText(u8"Совпадений нет")
+        imgui.EndChild()
+        return
+    end
 
     local regionWidth = imgui.GetContentRegionAvail().x
     local columnWidth = regionWidth / 3
