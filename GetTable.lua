@@ -20,19 +20,17 @@ local firstLoadComplete = false
 local searchQuery = imgui.new.char[128]()
 
 local csvURL = "https://docs.google.com/spreadsheets/d/1WyZy0jQbnZIbV82wF2vT4R6lDPl4zfP_HzfRDYRMPo4/export?format=csv&gid=0"
-local updateUrl = "https://raw.githubusercontent.com/your-username/your-repo/main/update.json" -- УКАЖИ СВОЮ ССЫЛКУ
+local updateUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
 
 local function theme()
     local s = imgui.GetStyle()
     local c = imgui.Col
     local clr = s.Colors
-
     s.WindowRounding = 0
     s.WindowTitleAlign = imgui.ImVec2(0.5, 0.84)
     s.ChildRounding = 0
     s.FrameRounding = 5.0
     s.ItemSpacing = imgui.ImVec2(10, 10)
-
     clr[c.Text] = imgui.ImVec4(0.85, 0.86, 0.88, 1)
     clr[c.WindowBg] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
     clr[c.ChildBg] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
@@ -43,16 +41,13 @@ local function theme()
     clr[c.FrameBgHovered] = imgui.ImVec4(0.15, 0.20, 0.23, 1)
     clr[c.FrameBgActive] = imgui.ImVec4(0.15, 0.20, 0.23, 1)
     clr[c.Separator] = imgui.ImVec4(0.20, 0.25, 0.30, 1)
-
     clr[c.TitleBg] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
     clr[c.TitleBgActive] = imgui.ImVec4(0.05, 0.08, 0.10, 1)
     clr[c.TitleBgCollapsed] = imgui.ImVec4(0.05, 0.08, 0.10, 0.75)
-
     s.ScrollbarSize = 18
     s.ScrollbarRounding = 0
     s.GrabRounding = 0
     s.GrabMinSize = 38
-
     clr[c.ScrollbarBg] = imgui.ImVec4(0.04, 0.06, 0.07, 0.8)
     clr[c.ScrollbarGrab] = imgui.ImVec4(0.15, 0.15, 0.18, 1.0)
     clr[c.ScrollbarGrabHovered] = imgui.ImVec4(0.25, 0.25, 0.28, 1.0)
@@ -231,9 +226,7 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
             ffi.fill(searchQuery, ffi.sizeof(searchQuery))
         end
         imgui.PopStyleColor(3)
-        if imgui.IsItemHovered() then
-            imgui.SetTooltip(u8"Очистить поиск")
-        end
+        if imgui.IsItemHovered() then imgui.SetTooltip(u8"Очистить поиск") end
 
         imgui.SameLine()
         imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0, 0, 0, 0))
@@ -243,9 +236,7 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
             updateCSV()
         end
         imgui.PopStyleColor(3)
-        if imgui.IsItemHovered() then
-            imgui.SetTooltip(u8"Обновить таблицу")
-        end
+        if imgui.IsItemHovered() then imgui.SetTooltip(u8"Обновить таблицу") end
 
         imgui.Spacing()
         drawTable(sheetData)
@@ -254,30 +245,31 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
 end)
 
 function checkUpdates()
-    asyncHttpRequest(updateUrl,
-        function(response)
-            if response.status_code == 200 then
-                local data = json.decode(response.text)
-                if data and data.version and data.download then
-                    local currentVersion = tonumber(thisScript().version:gsub('%.', ''))
-                    local newVersion = tonumber(data.version:gsub('%.', ''))
-                    if newVersion > currentVersion then
-                        sampAddChatMessage("{00FF00}[GT] {FFFFFF}Доступна новая версия: {90EE90}" .. data.version .. "{FFFFFF}. Обновление...", -1)
-                        downloadUrlToFile(data.download, thisScript().path, function(_, status)
-                            if status == download_status.STATUSEX_ENDDOWNLOAD then
-                                sampAddChatMessage("{00FF00}[GT] {FFFFFF}Скрипт обновлён. Введите {00FF00}/reload {FFFFFF}или перезапустите игру.", -1)
-                            elseif status == download_status.STATUSEX_ERROR then
-                                sampAddChatMessage("{00FF00}[GT] {FF4C4C}Ошибка загрузки обновления.", -1)
-                            end
-                        end)
-                    end
+    lua_thread.create(function()
+        local success, response = pcall(function()
+            return requests.get(updateUrl)
+        end)
+
+        if success and response.status_code == 200 then
+            local data = json.decode(response.text)
+            if data and data.version and data.download then
+                local currentVersion = tonumber(thisScript().version:gsub('%.', ''))
+                local newVersion = tonumber(data.version:gsub('%.', ''))
+                if newVersion > currentVersion then
+                    sampAddChatMessage("{00FF00}[GT] {FFFFFF}Доступна новая версия: {90EE90}" .. data.version .. "{FFFFFF}. Обновление...", -1)
+                    downloadUrlToFile(data.download, thisScript().path, function(_, status)
+                        if status == download_status.STATUSEX_ENDDOWNLOAD then
+                            sampAddChatMessage("{00FF00}[GT] {FFFFFF}Скрипт обновлён. Введите {00FF00}/reload {FFFFFF}или перезапустите игру.", -1)
+                        elseif status == download_status.STATUSEX_ERROR then
+                            sampAddChatMessage("{00FF00}[GT] {FF4C4C}Ошибка загрузки обновления.", -1)
+                        end
+                    end)
                 end
             end
-        end,
-        function(err)
-            sampAddChatMessage("{00FF00}[GT] {FF4C4C}Ошибка при проверке обновлений: " .. tostring(err), -1)
+        else
+            sampAddChatMessage("{00FF00}[GT] {FF4C4C}Ошибка при проверке обновлений.", -1)
         end
-    )
+    end)
 end
 
 function main()
