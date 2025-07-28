@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.22")
+script_version("1.23")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -15,6 +15,7 @@ encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 local updateInfoUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
+local csvURL = nil
 
 local function versionToNumber(v)
     local clean = tostring(v):gsub("[^%d]", "")
@@ -58,7 +59,8 @@ local function checkForUpdates()
     asyncHttpRequest("GET", updateInfoUrl, nil, function(response)
         if response.status_code == 200 then
             local data = json.decode(response.text)
-            if data and data.version and data.url then
+            if data and data.version and data.url and data.csv then
+                csvURL = data.csv
                 local current = versionToNumber(thisScript().version)
                 local remote = versionToNumber(data.version)
                 if remote > current then
@@ -103,7 +105,6 @@ local lastGoodSheetData = nil
 local isLoading = false
 local firstLoadComplete = false
 local searchQuery = imgui.new.char[128]()
-local csvURL = "https://docs.google.com/spreadsheets/d/1WyZy0jQbnZIbV82wF2vT4R6lDPl4zfP_HzfRDYRMPo4/export?format=csv&gid=0"
 
 local function theme()
     local s = imgui.GetStyle()
@@ -239,6 +240,7 @@ local function drawTable(data)
 end
 
 local function updateCSV()
+    if not csvURL then return end
     isLoading = true
     firstLoadComplete = false
     local tmpPath = os.tmpname() .. ".csv"
