@@ -44,21 +44,30 @@ local function checkForUpdate()
         if json.version ~= thisScript().version then
             sampAddChatMessage("[GT] Доступна новая версия: " .. json.version .. ", обновляем...", -1)
             local tmpLua = os.tmpname() .. ".lua"
-            downloadUrlToFile(json.script_url, tmpLua, function(ok)
-                if ok then
+            downloadUrlToFile(json.script_url, tmpLua, function(downloaded)
+                if downloaded then
+                    local success = false
                     local src = io.open(tmpLua, "r")
-                    local dst = io.open(thisScript().path, "w+")
-                    if src and dst then
-                        dst:write(src:read("*a"))
-                        dst:close()
+                    if src then
+                        local newContent = src:read("*a")
                         src:close()
-                        os.remove(tmpLua)
-                        sampAddChatMessage("[GT] Скрипт обновлён. Перезапустите скрипт или игру.", -1)
+
+                        local dst = io.open(thisScript().path, "w+")
+                        if dst then
+                            dst:write(newContent)
+                            dst:close()
+                            success = true
+                        end
+                    end
+
+                    os.remove(tmpLua)
+                    if success then
+                        sampAddChatMessage("[GT] Скрипт успешно обновлён. Перезапустите скрипт или игру.", -1)
                     else
-                        sampAddChatMessage("[GT] Ошибка при записи нового скрипта.", -1)
+                        sampAddChatMessage("[GT] Не удалось записать обновлённый скрипт.", -1)
                     end
                 else
-                    sampAddChatMessage("[GT] Ошибка загрузки новой версии.", -1)
+                    sampAddChatMessage("[GT] Ошибка загрузки новой версии скрипта.", -1)
                 end
             end)
         else
@@ -228,8 +237,12 @@ local function updateCSV()
                 sheetData = parseCSV(content)
                 lastGoodSheetData = sheetData
                 os.remove(tmpPath)
-            else sheetData = lastGoodSheetData end
-        else sheetData = lastGoodSheetData end
+            else
+                sheetData = lastGoodSheetData
+            end
+        else
+            sheetData = lastGoodSheetData
+        end
         isLoading, firstLoadComplete = false, true
     end)
 end
