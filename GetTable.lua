@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.14")
+script_version("1.15")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -13,7 +13,6 @@ local json = require("json")
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
--- ? Автообновление
 local updateInfoUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
 
 local function versionToNumber(v)
@@ -81,9 +80,6 @@ local function checkForUpdates()
     end)
 end
 
-
-
--- ?? Таблица Google CSV
 local renderWindow = imgui.new.bool(false)
 local sheetData = nil
 local lastGoodSheetData = nil
@@ -92,7 +88,6 @@ local firstLoadComplete = false
 local searchQuery = imgui.new.char[128]()
 local csvURL = "https://docs.google.com/spreadsheets/d/1WyZy0jQbnZIbV82wF2vT4R6lDPl4zfP_HzfRDYRMPo4/export?format=csv&gid=0"
 
--- ?? Тема
 local function theme()
     local s = imgui.GetStyle()
     local c = imgui.Col
@@ -132,7 +127,6 @@ imgui.OnInitialize(function()
     imgui.GetIO().IniFilename = nil
 end)
 
--- ?? Парсинг CSV
 local function parseCSV(data)
     local rows = {}
     for line in data:gmatch("[^\r\n]+") do
@@ -153,7 +147,6 @@ local function parseCSV(data)
     return rows
 end
 
--- ?? Спиннер загрузки
 local function drawSpinner()
     local center = imgui.GetWindowPos() + imgui.GetWindowSize() * 0.5
     local radius, thickness, segments = 32.0, 3.0, 30
@@ -174,7 +167,6 @@ local function drawSpinner()
     end
 end
 
--- Центровка текста
 local function CenterTextInColumn(text)
     local columnWidth = imgui.GetColumnWidth()
     local textWidth = imgui.CalcTextSize(text).x
@@ -191,7 +183,6 @@ local function CenterText(text)
     imgui.Text(text)
 end
 
--- ?? Отрисовка таблицы
 local function drawTable(data)
     if not firstLoadComplete then drawSpinner(); CenterText(u8"Загрузка таблицы..."); return end
     if not data or #data == 0 then return end
@@ -230,7 +221,6 @@ local function drawTable(data)
     imgui.EndChild()
 end
 
--- ?? Загрузка CSV
 local function updateCSV()
     isLoading = true
     firstLoadComplete = false
@@ -255,7 +245,6 @@ local function updateCSV()
     end)
 end
 
--- ??? Окно интерфейса
 imgui.OnFrame(function() return renderWindow[0] end, function()
     local sx, sy = getScreenResolution()
     local w, h = math.min(900, sx - 50), 500
@@ -290,7 +279,6 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
     end
 end)
 
--- ?? Главная функция
 function main()
     while not isSampAvailable() do wait(0) end
     checkForUpdates()
