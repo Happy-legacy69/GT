@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.18")
+script_version("1.19")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -63,23 +63,41 @@ local function checkForUpdates()
                 local remote = versionToNumber(data.version)
                 if remote > current then
                     local tempPath = thisScript().path
-                    asyncHttpRequest("GET", data.url, nil, function(fileResponse)
-                        if fileResponse.status_code == 200 and fileResponse.text then
-                            local convert = iconv.new("CP1251", "UTF-8")
-                            local encodedText = convert:iconv(fileResponse.text)
-                            local f = io.open(tempPath, "wb")
-                            if f then
-                                f:write(encodedText)
-                                f:close()
-                                sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ вручную.", 0xFFFFFF)
-                            end
+                    local thread = effil.thread(function(url, tempPath)
+                        local requests = require("requests")
+                        local iconv = require("iconv")
+                        local ok, response = pcall(requests.get, url)
+                        if not ok or response.status_code ~= 200 then return false end
+
+                        local convert = iconv.new("CP1251", "UTF-8")
+                        local encodedText = convert:iconv(response.text)
+                        local f = io.open(tempPath, "wb")
+                        if not f then return false end
+                        f:write(encodedText)
+                        f:close()
+                        return true
+                    end)(data.url, tempPath)
+
+                    lua_thread.create(function()
+                        while true do
+                            local status = thread:status()
+                            if status == "completed" then
+                                local ok = thread:get()
+                                if ok then
+                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ вручную.", 0xFFFFFF)
+                                end
+                                return
+                            elseif status == "canceled" then return end
+                            wait(0)
                         end
-                    end, function(err) end)
+                    end)
                 end
             end
         end
-    end, function(err) end)
+    end, function(err)
+    end)
 end
+
 
 local renderWindow = imgui.new.bool(false)
 local sheetData = nil
