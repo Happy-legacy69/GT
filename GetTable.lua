@@ -9,6 +9,7 @@ local ffi = require 'ffi'
 local dlstatus = require("moonloader").download_status
 local effil = require("effil")
 local json = require("json")
+local iconv = require("iconv") 
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
