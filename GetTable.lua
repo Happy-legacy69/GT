@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.15")
+script_version("1.16")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -65,12 +65,25 @@ local function checkForUpdates()
 
                     local tempPath = thisScript().path
 
-                    downloadUrlToFile(data.url, tempPath, function(_, status)
-                        if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-                            sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ вручную.", 0xFFFFFF)
+                    -- Загрузка и перекодировка в CP1251
+                    asyncHttpRequest("GET", data.url, nil, function(fileResponse)
+                        if fileResponse.status_code == 200 and fileResponse.text then
+                            local convert = iconv.new("CP1251", "UTF-8")
+                            local encodedText = convert:iconv(fileResponse.text)
+
+                            local f = io.open(tempPath, "wb")
+                            if f then
+                                f:write(encodedText)
+                                f:close()
+                                sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ вручную.", 0xFFFFFF)
+                            else
+                                sampAddChatMessage("{FF0000}[GT]{FFFFFF} Ошибка записи файла обновления.", 0xFFFFFF)
+                            end
                         else
                             sampAddChatMessage("{FF0000}[GT]{FFFFFF} Ошибка загрузки обновления.", 0xFFFFFF)
                         end
+                    end, function(err)
+                        sampAddChatMessage("{FF0000}[GT]{FFFFFF} Ошибка HTTP при загрузке обновления: " .. tostring(err), 0xFFFFFF)
                     end)
                 end
             end
