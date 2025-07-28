@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.20")
+script_version("1.21")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
