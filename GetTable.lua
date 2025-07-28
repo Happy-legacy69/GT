@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.12")
+script_version("1.13")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -18,7 +18,7 @@ local firstLoadComplete = false
 local searchQuery = imgui.new.char[128]()
 
 local csvURL = "https://docs.google.com/spreadsheets/d/1WyZy0jQbnZIbV82wF2vT4R6lDPl4zfP_HzfRDYRMPo4/export?format=csv&gid=0"
-local updateUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json" -- замените на актуальный URL
+local updateUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
 
 -- Система автообновления
 local function checkForUpdate()
