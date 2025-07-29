@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.27")
+script_version("1.28")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -294,7 +294,7 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
     imgui.SetNextWindowPos(imgui.ImVec2((sx - w) / 2, (sy - h) / 2), imgui.Cond.FirstUseEver)
     imgui.SetNextWindowSize(imgui.ImVec2(w, h), imgui.Cond.FirstUseEver)
 
-    if imgui.Begin(string.format("%s Google Table by legacy %s", fa.EYE, thisScript().version), renderWindow) then
+    if imgui.Begin(string.format("%s Google Table %s", fa.EYE, thisScript().version), renderWindow) then
         local availableWidth = imgui.GetContentRegionAvail().x
         imgui.PushItemWidth(availableWidth * 0.7)
         imgui.InputTextWithHint("##Search", u8("Введите товар для поиска по Google Table"), searchQuery, ffi.sizeof(searchQuery))
@@ -329,11 +329,13 @@ function main()
 
     while csvURL == nil and #allowedNicknames == 0 do wait(0) end
 
-    if not isNicknameAllowed() then
-        sampAddChatMessage("{FF0000}[GT] Ваш ник не привязан. Доступ запрещён.", -1)
-        return
-    end
-
+ if not isNicknameAllowed() then
+    local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+    local nick = sampGetPlayerNickname(id)
+    sampAddChatMessage(string.format("{FF0000}[GT] {FFFFFF}%s{FF0000}, вам доступ запрещён.", nick), -1)
+    return
+end
+    
     sampAddChatMessage("{00FF00}[GT]{FFFFFF} Скрипт загружен. Для активации используйте {00FF00}/gt", 0xFFFFFF)
 
     sampRegisterChatCommand('gt', function()
