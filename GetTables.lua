@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.30")
+script_version("1.34")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -9,7 +9,6 @@ local ffi = require 'ffi'
 local dlstatus = require("moonloader").download_status
 local effil = require("effil")
 local json = require("json")
-local iconv = require("iconv")
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
@@ -79,15 +78,11 @@ local function checkForUpdates()
                     local tempPath = thisScript().path
                     local thread = effil.thread(function(url, tempPath)
                         local requests = require("requests")
-                        local iconv = require("iconv")
                         local ok, response = pcall(requests.get, url)
                         if not ok or response.status_code ~= 200 then return false end
-
-                        local convert = iconv.new("CP1251", "UTF-8")
-                        local encodedText = convert:iconv(response.text)
                         local f = io.open(tempPath, "wb")
                         if not f then return false end
-                        f:write(encodedText)
+                        f:write(response.text)
                         f:close()
                         return true
                     end)(data.url, tempPath)
@@ -223,13 +218,13 @@ local function drawTable(data)
 
     if #data == 0 then return end
 
-    local filtered, query = {}, ffi.string(searchQuery)
+    local filtered, query = {}, ffi.string(searchQuery):lower():gsub(" ", "")
     for i = 2, #data do
         local row = data[i]
         local match = false
         for _, cell in ipairs(row) do
-            local text = tostring(cell or "")
-            if string.lower(u8:encode(text)):find(string.lower(u8:encode(query)), 1, true) then
+            local text = tostring(cell or ""):lower():gsub(" ", "")
+            if text:find(query, 1, true) then
                 match = true
                 break
             end
