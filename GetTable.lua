@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.28")
+script_version("1.29")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -88,7 +88,7 @@ local function checkForUpdates()
                             if status == "completed" then
                                 local ok = thread:get()
                                 if ok then
-                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ.", 0xFFFFFF)
+                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено.", 0xFFFFFF)
                                 end
                                 return
                             elseif status == "canceled" then return end
@@ -110,7 +110,6 @@ local function isNicknameAllowed()
     return false
 end
 
--- ========== UI и логика отображения ==========
 local renderWindow = imgui.new.bool(false)
 local sheetData = nil
 local lastGoodSheetData = nil
