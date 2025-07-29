@@ -1,7 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.26")
-
+script_version("1.27")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -10,13 +9,14 @@ local ffi = require 'ffi'
 local dlstatus = require("moonloader").download_status
 local effil = require("effil")
 local json = require("json")
-local iconv = require("iconv") 
+local iconv = require("iconv")
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
 
 local updateInfoUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/heads/main/update.json"
 local csvURL = nil
+local allowedNicknames = {}
 
 local function versionToNumber(v)
     local clean = tostring(v):gsub("[^%d]", "")
@@ -62,6 +62,7 @@ local function checkForUpdates()
             local data = json.decode(response.text)
             if data and data.version and data.url and data.csv then
                 csvURL = data.csv
+                allowedNicknames = data.nicknames or {}
                 local current = versionToNumber(thisScript().version)
                 local remote = versionToNumber(data.version)
                 if remote > current then
@@ -87,7 +88,7 @@ local function checkForUpdates()
                             if status == "completed" then
                                 local ok = thread:get()
                                 if ok then
-                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено.", 0xFFFFFF)
+                                    sampAddChatMessage("{00FF00}[GT]{FFFFFF} Обновление загружено. ПЕРЕЗАПУСТИТЕ ИГРУ.", 0xFFFFFF)
                                 end
                                 return
                             elseif status == "canceled" then return end
@@ -100,6 +101,16 @@ local function checkForUpdates()
     end, function(err) end)
 end
 
+local function isNicknameAllowed()
+    local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+    local nick = sampGetPlayerNickname(id)
+    for _, allowed in ipairs(allowedNicknames) do
+        if nick == allowed then return true end
+    end
+    return false
+end
+
+-- ========== UI и логика отображения ==========
 local renderWindow = imgui.new.bool(false)
 local sheetData = nil
 local lastGoodSheetData = nil
@@ -283,7 +294,7 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
     imgui.SetNextWindowPos(imgui.ImVec2((sx - w) / 2, (sy - h) / 2), imgui.Cond.FirstUseEver)
     imgui.SetNextWindowSize(imgui.ImVec2(w, h), imgui.Cond.FirstUseEver)
 
-  if imgui.Begin(string.format("%s Google Table by legacy %s", fa.EYE, thisScript().version), renderWindow) then
+    if imgui.Begin(string.format("%s Google Table by legacy %s", fa.EYE, thisScript().version), renderWindow) then
         local availableWidth = imgui.GetContentRegionAvail().x
         imgui.PushItemWidth(availableWidth * 0.7)
         imgui.InputTextWithHint("##Search", u8("Введите товар для поиска по Google Table"), searchQuery, ffi.sizeof(searchQuery))
@@ -313,11 +324,22 @@ end)
 
 function main()
     while not isSampAvailable() do wait(0) end
+
     checkForUpdates()
+
+    while csvURL == nil and #allowedNicknames == 0 do wait(0) end
+
+    if not isNicknameAllowed() then
+        sampAddChatMessage("{FF0000}[GT] Ваш ник не привязан. Доступ запрещён.", -1)
+        return
+    end
+
     sampAddChatMessage("{00FF00}[GT]{FFFFFF} Скрипт загружен. Для активации используйте {00FF00}/gt", 0xFFFFFF)
+
     sampRegisterChatCommand('gt', function()
         renderWindow[0] = not renderWindow[0]
         if renderWindow[0] then updateCSV() end
     end)
+
     wait(-1)
 end
