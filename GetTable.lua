@@ -1,6 +1,6 @@
 script_name("Google Table")
 script_author("legaсу")
-script_version("1.29")
+script_version("1.30")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -21,6 +21,15 @@ local allowedNicknames = {}
 local function versionToNumber(v)
     local clean = tostring(v):gsub("[^%d]", "")
     return tonumber(clean) or 0
+end
+
+local function isNicknameAllowed()
+    local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+    local nick = sampGetPlayerNickname(id)
+    for _, allowed in ipairs(allowedNicknames) do
+        if nick == allowed then return true end
+    end
+    return false
 end
 
 local function checkForUpdates()
@@ -66,6 +75,7 @@ local function checkForUpdates()
                 local current = versionToNumber(thisScript().version)
                 local remote = versionToNumber(data.version)
                 if remote > current then
+                    if not isNicknameAllowed() then return end
                     local tempPath = thisScript().path
                     local thread = effil.thread(function(url, tempPath)
                         local requests = require("requests")
@@ -99,15 +109,6 @@ local function checkForUpdates()
             end
         end
     end, function(err) end)
-end
-
-local function isNicknameAllowed()
-    local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
-    local nick = sampGetPlayerNickname(id)
-    for _, allowed in ipairs(allowedNicknames) do
-        if nick == allowed then return true end
-    end
-    return false
 end
 
 local renderWindow = imgui.new.bool(false)
@@ -225,14 +226,20 @@ local function drawTable(data)
     local filtered, query = {}, ffi.string(searchQuery)
     for i = 2, #data do
         local row = data[i]
-        local cell = tostring(row[1] or "")
-        if string.lower(u8:encode(cell)):find(string.lower(u8:encode(query)), 1, true) then
-            table.insert(filtered, row)
+        local match = false
+        for _, cell in ipairs(row) do
+            local text = tostring(cell or "")
+            if string.lower(u8:encode(text)):find(string.lower(u8:encode(query)), 1, true) then
+                match = true
+                break
+            end
         end
+        if match then table.insert(filtered, row) end
     end
 
     imgui.BeginChild("scrollingRegion", imgui.ImVec2(-1, -1), true)
     if #filtered == 0 then
+        drawSpinner()
         imgui.Dummy(imgui.ImVec2(0, 40))
         CenterText(u8"Совпадений нет")
         imgui.EndChild()
@@ -328,13 +335,13 @@ function main()
 
     while csvURL == nil and #allowedNicknames == 0 do wait(0) end
 
- if not isNicknameAllowed() then
-    local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
-    local nick = sampGetPlayerNickname(id)
-    sampAddChatMessage(string.format("{FF0000}[GT] {FFFFFF}%s{FF0000}, вам доступ запрещён.", nick), -1)
-    return
-end
-    
+    if not isNicknameAllowed() then
+        local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+        local nick = sampGetPlayerNickname(id)
+        sampAddChatMessage(string.format("{00FF00}[GT] {FFC800}%s{FFFFFF} , вам доступ запрещён.", nick), -1)
+        return
+    end
+
     sampAddChatMessage("{00FF00}[GT]{FFFFFF} Скрипт загружен. Для активации используйте {00FF00}/gt", 0xFFFFFF)
 
     sampRegisterChatCommand('gt', function()
