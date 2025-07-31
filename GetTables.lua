@@ -1,6 +1,6 @@
-script_name("Google Table")
-script_author("legaсу")
-script_version("1.34")
+script_name("Google Table Search")
+script_author("legacy")
+script_version("1.36")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
@@ -9,6 +9,7 @@ local ffi = require 'ffi'
 local dlstatus = require("moonloader").download_status
 local effil = require("effil")
 local json = require("json")
+local iconv = require("iconv")
 
 encoding.default = 'CP1251'
 local u8 = encoding.UTF8
@@ -17,6 +18,24 @@ local updateInfoUrl = "https://raw.githubusercontent.com/Happy-legacy69/GT/refs/
 local csvURL = nil
 local allowedNicknames = {}
 
+local renderWindow = imgui.new.bool(false)
+local sheetData = nil
+local lastGoodSheetData = nil
+local isLoading = false
+local firstLoadComplete = false
+local searchInput = ffi.new("char[128]", "")
+
+local function toLowerCyrillic(str)
+    local map = {
+        ["А"]="а",["Б"]="б",["В"]="в",["Г"]="г",["Д"]="д",["Е"]="е",["Ё"]="ё",["Ж"]="ж",["З"]="з",["И"]="и",
+        ["Й"]="й",["К"]="к",["Л"]="л",["М"]="м",["Н"]="н",["О"]="о",["П"]="п",["Р"]="р",["С"]="с",["Т"]="т",
+        ["У"]="у",["Ф"]="ф",["Х"]="х",["Ц"]="ц",["Ч"]="ч",["Ш"]="ш",["Щ"]="щ",["Ъ"]="ъ",["Ы"]="ы",["Ь"]="ь",
+        ["Э"]="э",["Ю"]="ю",["Я"]="я"
+    }
+    for up, low in pairs(map) do str = str:gsub(up, low) end
+    return str:lower()
+end
+
 local function versionToNumber(v)
     local clean = tostring(v):gsub("[^%d]", "")
     return tonumber(clean) or 0
@@ -24,7 +43,8 @@ end
 
 local function isNicknameAllowed()
     local _, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
-    local nick = sampGetPlayerNickname(id)
+    local rawNick = sampGetPlayerNickname(id)
+    local nick = rawNick:match("%]%s*(.+)") or rawNick
     for _, allowed in ipairs(allowedNicknames) do
         if nick == allowed then return true end
     end
@@ -106,13 +126,6 @@ local function checkForUpdates()
     end, function(err) end)
 end
 
-local renderWindow = imgui.new.bool(false)
-local sheetData = nil
-local lastGoodSheetData = nil
-local isLoading = false
-local firstLoadComplete = false
-local searchQuery = imgui.new.char[128]()
-
 local function theme()
     local s = imgui.GetStyle()
     local c = imgui.Col
@@ -154,7 +167,17 @@ end)
 
 local function parseCSV(data)
     local rows = {}
-    for line in data:gmatch("[^\r\n]+") do
+    local ok, converted = pcall(function()
+        local conv = iconv.new("CP1251", "UTF-8")
+        return conv:iconv(data)
+    end)
+
+    if not ok then
+        sampAddChatMessage("[GT] Ошибка перекодировки CSV: " .. tostring(converted), 0xFF4444)
+        return nil
+    end
+
+    for line in converted:gmatch("[^\r\n]+") do
         local row, i, inQuotes, cell = {}, 1, false, ''
         for c in (line .. ','):gmatch('.') do
             if c == '"' then
@@ -218,13 +241,15 @@ local function drawTable(data)
 
     if #data == 0 then return end
 
-    local filtered, query = {}, ffi.string(searchQuery):lower():gsub(" ", "")
+    local filter = toLowerCyrillic(u8:decode(ffi.string(searchInput)))
+    local filtered = {}
+
+    table.insert(filtered, data[1])
     for i = 2, #data do
         local row = data[i]
         local match = false
         for _, cell in ipairs(row) do
-            local text = tostring(cell or ""):lower():gsub(" ", "")
-            if text:find(query, 1, true) then
+            if toLowerCyrillic(tostring(cell)):find(filter, 1, true) then
                 match = true
                 break
             end
@@ -233,10 +258,9 @@ local function drawTable(data)
     end
 
     imgui.BeginChild("scrollingRegion", imgui.ImVec2(-1, -1), true)
-    if #filtered == 0 then
-        drawSpinner()
-        imgui.Dummy(imgui.ImVec2(0, 40))
-        CenterText(u8"Совпадений нет")
+
+    if #filtered == 1 and filter ~= "" then
+        CenterText(u8"Совпадений нет.")
         imgui.EndChild()
         return
     end
@@ -248,18 +272,27 @@ local function drawTable(data)
     local y1 = pos.y + imgui.GetContentRegionAvail().y + imgui.GetScrollMaxY() + 7
     local x1 = pos.x + columnWidth
     local x2 = pos.x + 2 * columnWidth
+
     local draw = imgui.GetWindowDrawList()
     local sepColor = imgui.GetColorU32(imgui.Col.Separator)
     draw:AddLine(imgui.ImVec2(x1, y0), imgui.ImVec2(x1, y1), sepColor, 1)
     draw:AddLine(imgui.ImVec2(x2, y0), imgui.ImVec2(x2, y1), sepColor, 1)
 
     imgui.Columns(3, nil, false)
-    for i = 1, 3 do CenterTextInColumn(tostring(data[1][i] or "")); imgui.NextColumn() end
+    for i = 1, 3 do
+        CenterTextInColumn(u8(tostring(filtered[1][i] or "")))
+        imgui.NextColumn()
+    end
     imgui.Separator()
-    for _, row in ipairs(filtered) do
-        for col = 1, 3 do CenterTextInColumn(tostring(row[col] or "")); imgui.NextColumn() end
+
+    for i = 2, #filtered do
+        for col = 1, 3 do
+            CenterTextInColumn(u8(tostring(filtered[i][col] or "")))
+            imgui.NextColumn()
+        end
         imgui.Separator()
     end
+
     imgui.Columns(1)
     imgui.EndChild()
 end
@@ -271,12 +304,16 @@ local function updateCSV()
     local tmpPath = os.tmpname() .. ".csv"
     downloadUrlToFile(csvURL, tmpPath, function(success)
         if success then
-            local f = io.open(tmpPath, "r")
+            local f = io.open(tmpPath, "rb")
             if f then
                 local content = f:read("*a")
                 f:close()
                 sheetData = parseCSV(content)
-                lastGoodSheetData = sheetData
+                if sheetData then
+                    lastGoodSheetData = sheetData
+                else
+                    sheetData = lastGoodSheetData
+                end
                 os.remove(tmpPath)
             else
                 sheetData = lastGoodSheetData
@@ -296,16 +333,16 @@ imgui.OnFrame(function() return renderWindow[0] end, function()
     imgui.SetNextWindowSize(imgui.ImVec2(w, h), imgui.Cond.FirstUseEver)
 
     if imgui.Begin(string.format("%s Google Table %s", fa.EYE, thisScript().version), renderWindow) then
-        local availableWidth = imgui.GetContentRegionAvail().x
-        imgui.PushItemWidth(availableWidth * 0.7)
-        imgui.InputTextWithHint("##Search", u8("Введите товар для поиска по Google Table"), searchQuery, ffi.sizeof(searchQuery))
+        local availWidth = imgui.GetContentRegionAvail().x
+        imgui.PushItemWidth(availWidth * 0.7)
+        imgui.InputTextWithHint("##search", u8"Поиск по таблице...", searchInput, ffi.sizeof(searchInput))
         imgui.PopItemWidth()
 
         imgui.SameLine()
         imgui.PushStyleColor(imgui.Col.Button, imgui.ImVec4(0, 0, 0, 0))
         imgui.PushStyleColor(imgui.Col.ButtonHovered, imgui.ImVec4(0.15, 0.20, 0.23, 0.3))
         imgui.PushStyleColor(imgui.Col.ButtonActive, imgui.ImVec4(0.15, 0.20, 0.23, 0.5))
-        if imgui.SmallButton(fa.ERASER) then ffi.fill(searchQuery, ffi.sizeof(searchQuery)) end
+        if imgui.SmallButton(fa.ERASER) then ffi.fill(searchInput, ffi.sizeof(searchInput)) end
         imgui.PopStyleColor(3)
         if imgui.IsItemHovered() then imgui.SetTooltip(u8"Очистить поиск") end
 
@@ -341,7 +378,9 @@ function main()
 
     sampRegisterChatCommand('gt', function()
         renderWindow[0] = not renderWindow[0]
-        if renderWindow[0] then updateCSV() end
+        if renderWindow[0] and not firstLoadComplete then 
+            updateCSV()
+        end
     end)
 
     wait(-1)
