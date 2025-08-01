@@ -1,6 +1,6 @@
 script_name("Google Table Search")
 script_author("legacy")
-script_version("1.36")
+script_version("1.37")
 
 local fa = require('fAwesome6_solid')
 local imgui = require 'mimgui'
